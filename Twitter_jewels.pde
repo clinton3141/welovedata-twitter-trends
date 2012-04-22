@@ -1,104 +1,86 @@
-
-
-
-/*
-  20110927_twitterapp1
-  https://dev.tommetcalfe.com
-  @dev_tommetcalfe
-
-  Everytime a tweet is received,
-  An LED on the Arduino comes on.
-*/
-
 import cc.arduino.*;
+import org.json.*;
+import processing.serial.*;
 
-
-Twitter myTwitter;
+JSONArray json;
+JSONArray trending;
+String trendingURI;
 Arduino arduino;
-//FullScreen fs;
+ArrayList topics; 
+int timeBetweenRequests;
 
-/*====================================================================================*/
+void generateTrendsList ()
+{
+  topics.add("spooner");
+  topics.add("jon spooner");
+  topics.add("john spooner");
+  topics.add("unsa");
+  topics.add("unlimited space agency");
+  topics.add("spaceapps");
+}
 
 void setup()
 {
+  timeBetweenRequests = 36000;
+  // GLOBAL trending topics
+//  trendingURI = "https://api.twitter.com/1/trends/1.json";
+
+  // UK trending topics
+  trendingURI = "https://api.twitter.com/1/trends/23424975.json";
   
   // Applying Background Colour first means that it is that colour right from the start
   background(199, 193, 172);
   size(800,120);
   
-  println(Arduino.list());
+  topics = new ArrayList ();
+  
+  generateTrendsList ();
+  
   arduino = new Arduino(this, Arduino.list()[0], 57600);
-  
-  arduino.pinMode(13, Arduino.OUTPUT);
-
-/*  Annoying code relating to FullScreen
-
-  // 5 fps
-  frameRate(5);
-
-  // Create the fullscreen object
-  fs = new FullScreen(this); 
-  
-  // enter fullscreen mode
-  fs.enter(); 
-*/
+  arduino.pinMode(13, Arduino.OUTPUT); 
 }
 
-/*====================================================================================*/
+void ACTIVATE ()
+{
+  println("WE'RE TRENDING!!!");
+  
+  //arduino stuff
+  background(0,255,0);
+  arduino.digitalWrite(13, Arduino.HIGH);
+}
+
+void DEACTIVATE ()
+{
+  background(255,0,0);
+  arduino.digitalWrite(13, Arduino.LOW);
+}
 
 void draw() 
-{ 
-  
-  // how long each tweet is visible for
-  delay(500);
+{  
+  DEACTIVATE();
 
-  arduino.digitalWrite(13, Arduino.LOW);
-  delay(3000);
-  
-  PFont font2;
-    font2 = loadFont("Helvetica-48.vlw");
-    fill(0, 102, 153);
- 
- // Applying NEW background stops each line printing on top of one another
- background(199, 193, 172);
- 
-  //text properties
-    textAlign(CENTER);
-    textFont(font2, 12);
-    text("", 12, 24);
-    fill(62, 65, 50);
-  
-  //twitter account name and password
-  myTwitter = new Twitter("dev_tommetcalfe", "findplaymaketalk1234");
-  try 
+  String[] lines = loadStrings(trendingURI);
+
+  try
   {
-    
-    //Twitter Search
-//    Query query1 = new Query("#spaceapps");
-//    query1.setRpp(1);
-//    QueryResult result1 = myTwitter.search(query1);
-      Trends trends = new Trends ();
-      println(trends);
- 
-//    ArrayList tweets1 = (ArrayList) result1.getTweets();
-      for (int i = 0; i < tweets1.size(); i++) 
-      {
-//      Tweet t = (Tweet) tweets1.get(i);
-      
-      //Show name of person who placed tweet @.....
-      //String user = t.getFromUser();
-//      String msg = t.getText();
-//      Date d = t.getCreatedAt();
-     // text(user, width/2, 1*height/4);
-//      text(msg, width/2, height/2);     
-    }
- 
+    JSONArray trendsarr = new JSONArray(join(lines, ""));
+    JSONArray trends = trendsarr.getJSONObject(0).getJSONArray("trends");
 
-    //PLACE ARDUINO CODE HERE - need if statement here
-    arduino.digitalWrite(13, Arduino.HIGH);
+    for (int i = 0; i < trends.length(); i++)
+    {
+      String trend = trends.getJSONObject(i).getString("name").toLowerCase().replace("#", "");
+      if (topics.contains(trend))
+      {
+        ACTIVATE();
+      }
+    }
+  }
+  catch (Exception e)
+  {
+    println("Corrupt json feed");
   }
   
-  catch (TwitterException te) {
-    println("Couldn't connect: " + te);
-    }
+  // don't want to reach the API limit
+  // this limits it to 1 request every 36 seconds - or 100 requests/hour
+  delay(timeBetweenRequests);
 }
